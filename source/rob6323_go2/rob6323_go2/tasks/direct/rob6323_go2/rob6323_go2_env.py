@@ -35,6 +35,10 @@ class Rob6323Go2Env(DirectRLEnv):
         self.motor_offsets = torch.zeros(self.num_envs, 12, device=self.device)
         self.torque_limits = cfg.torque_limits
 
+        # Friction parameters
+        self.Fs = torch.zeros(self.num_envs, 12, device=self.device)
+        self.mu_v = torch.zeros(self.num_envs, 12, device=self.device)
+
         # Joint position command (deviation from default joint positions)
         self._actions = torch.zeros(self.num_envs, gym.spaces.flatdim(self.single_action_space), device=self.device)
         self._previous_actions = torch.zeros(
@@ -251,6 +255,10 @@ class Rob6323Go2Env(DirectRLEnv):
         # Sample new commands
         self._commands[env_ids] = torch.zeros_like(self._commands[env_ids]).uniform_(-1.0, 1.0)
 
+        # Randomize actuator friction parameters per episode
+        self.mu_v[env_ids] = torch.rand(len(env_ids), 12, device=self.device) * 0.3
+        self.Fs[env_ids] = torch.rand(len(env_ids), 12, device=self.device) * 2.5
+
         # Reset robot state
         joint_pos = self.robot.data.default_joint_pos[env_ids]
         joint_vel = self.robot.data.default_joint_vel[env_ids]
@@ -334,19 +342,23 @@ class Rob6323Go2Env(DirectRLEnv):
 
     def _apply_action(self) -> None:
         # Compute PD torques
-        torques = torch.clip(
-            (
-                self.Kp * (
+        torques = (
+            self.Kp * (
                     self.desired_joint_pos 
                     - self.robot.data.joint_pos 
                 )
                 - self.Kd * self.robot.data.joint_vel
-            ),
-            -self.torque_limits,
-            self.torque_limits,
         )
 
+        qd = self.robot.data.joint_vel
+        tau_stiction = self.Fs * torch.tanh(qd / 0.1)
+        tau_viscous = self.mu_v * qd
+        tau_friction = tau_stiction + tau_viscous
+
+        torque = torque - tau_friction
+
         # Apply torques to the robot
+        torque = torch.clip(torque, -self.torque_limits, self.torque_limits)
         self.robot.set_joint_effort_target(torques)
 
     # Defines contact plan
