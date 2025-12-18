@@ -23,7 +23,6 @@ import isaaclab.utils.math as math_utils
 
 from .rob6323_go2_env_cfg import Rob6323Go2EnvCfg
 
-
 class Rob6323Go2Env(DirectRLEnv):
     cfg: Rob6323Go2EnvCfg
 
@@ -86,6 +85,8 @@ class Rob6323Go2Env(DirectRLEnv):
             "lin_vel_z",
             "dof_vel",
             "ang_vel_xy",
+            "feet_clearance",
+            "contact_shaped_force",
         ]}
 
     def _setup_scene(self):
@@ -170,6 +171,8 @@ class Rob6323Go2Env(DirectRLEnv):
 
         self._step_contact_targets() # Update gait state
         rew_raibert_heuristic = self._reward_raibert_heuristic()
+        feet_reward = self._reward_feet_clearance()
+        contact_reward = self._reward_tracking_contacts_shaped_force()
 
         # Add to rewards dict
         rewards = {
@@ -182,6 +185,8 @@ class Rob6323Go2Env(DirectRLEnv):
             "lin_vel_z": rew_lin_vel_z * self.cfg.lin_vel_z_reward_scale,
             "dof_vel": rew_dof_vel * self.cfg.dof_vel_reward_scale,
             "ang_vel_xy": rew_ang_vel_xy * self.cfg.ang_vel_xy_reward_scale,
+            "feet_clearance" : self.cfg.feet_clearance_reward_scale * feet_reward,
+            "contact_shaped_force" : self.cfg.tracking_contacts_shaped_force_reward_scale * contact_reward,
         }
         reward = torch.sum(torch.stack(list(rewards.values())), dim=0)
 
@@ -189,6 +194,29 @@ class Rob6323Go2Env(DirectRLEnv):
         for key, value in rewards.items():
             self._episode_sums[key] += value
         return reward
+    
+    def _reward_feet_clearance(self) -> torch.Tensor:
+        phases = torch.abs(1.0 - (self.foot_indices * 2.0)) * 1.0 - 0.5
+        foot_height = self.foot_positions_w[:, :, 2]
+
+        target_height = 0.08 * phases + 0.02
+
+        rew_foot_clearance = torch.square(target_height - foot_height) * (1.0 - self.desired_contact_states)
+        rew_feet_clearance = torch.sum(rew_foot_clearance, dim=1)
+        return rew_feet_clearance
+
+    def _reward_tracking_contacts_shaped_force(self) -> torch.Tensor:
+        net_forces = self._contact_sensor.data.net_forces_w_history
+        latest_forces = net_forces[:, -1]
+        force_norm = torch.norm(latest_forces, dim=-1)
+        foot_forces = force_norm[:, self._feet_ids_sensor]
+
+        rew_tracking_contacts_shaped_force = 0.0
+        for i in range(4):
+            rew_tracking_contacts_shaped_force += (1.0 - self.desired_contact_states[:, i]) * (1.0 - torch.exp(-foot_forces[:, i] ** 2 / 100.0))
+
+        rew_tracking_contacts_shaped_force = rew_tracking_contacts_shaped_force / 4.0
+        return rew_tracking_contacts_shaped_force
 
     def _get_dones(self) -> tuple[torch.Tensor, torch.Tensor]:
         time_out = self.episode_length_buf >= self.max_episode_length - 1
