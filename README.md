@@ -169,7 +169,11 @@ The suggested way to inspect these logs is via the Open OnDemand web interface:
 
 The following changes were made keeping the requirements and the scope of the project in mind. The primary goal of the the changes was to enforce a stable gait following the desired direction of motion while rewarding feet clearance and a cyclic stepping pattern. Several of the changes were guided by the tutorial and project documents.
 
-<video src="videos/rl-video-base.mp4" width="100%" controls autoplay loop muted> </video>
+
+
+https://github.com/user-attachments/assets/15451437-398a-45c8-84ea-43386a87ac87
+
+
 <p align="center"> Base Model </p>
 
 ## Additional Tutorial Rewards
@@ -205,7 +209,11 @@ rewards = {
     ...
 }
 ```
-<video src="videos/rl-video-tutorial.mp4" width="100%" controls autoplay loop muted> </video>
+
+
+https://github.com/user-attachments/assets/8116bff0-fa0c-4119-b566-6447585fc4a0
+
+
 <p align="center"> After Implementing Additional Tutorial Rewards </p>
 
 ## Raibert Heuristic Control Strategy
@@ -400,7 +408,11 @@ torque = torch.clip(torque, -self.torque_limits, self.torque_limits)
 self.robot.set_joint_effort_target(torques)
 ```
 
-<video src="videos/rl-video-gait.mp4" width="100%" controls autoplay loop muted> </video>
+
+
+https://github.com/user-attachments/assets/f5d851f7-3473-4a5c-b152-27223676b3be
+
+
 <p align="center"> After Implementing all rewards and the Actuator friction model </p>
 
 ## Extra Credits: Rough Terrain
@@ -426,7 +438,11 @@ terrain = TerrainImporterCfg(
 )
 ...
 ```
-<video src="videos/rl-video-rough.mp4" width="100%" controls autoplay loop muted> </video>
+
+
+https://github.com/user-attachments/assets/372b28aa-3fbe-4ce0-b067-6ed1f556f986
+
+
 
 Or for stepped terrain,
 ```python
@@ -464,4 +480,7 @@ terrain = TerrainImporterCfg(
     )
 )
 ```
-<video src="videos/rl-video-step.mp4" width="100%" controls autoplay loop muted> </video>
+
+
+https://github.com/user-attachments/assets/59715f6d-e7c0-412f-84b1-c7e7ed3b4995
+
